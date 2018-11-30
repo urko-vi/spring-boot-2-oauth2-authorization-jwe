@@ -1,4 +1,4 @@
-package es.gfi.norte.oauthserver;
+package com.urkovi.oauthserver;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

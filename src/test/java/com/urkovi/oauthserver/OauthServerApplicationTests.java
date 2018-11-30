@@ -1,4 +1,4 @@
-package es.gfi.norte.oauthserver;
+package com.urkovi.oauthserver;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
