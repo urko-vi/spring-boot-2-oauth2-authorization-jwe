@@ -1,0 +1,5 @@
+mvn sonar:sonar \
+  -Dsonar.projectKey=urko-vi_spring-boot-2-oauth2-authorization-jwe \
+  -Dsonar.organization=urko-vi-github \
+  -Dsonar.host.url=https://sonarcloud.io \
+  -Dsonar.login=91979b918e889d055ea302f2883610c288966ee6
