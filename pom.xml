@@ -92,7 +92,7 @@
 				<configuration>
 				<!--
 					<excludes>
-						<exclude>in/sivalabs/freelancerkit/entities/*</exclude>
+						<exclude>in/sivalabs/freelancerkit/entity/*</exclude>
 						<exclude>in/sivalabs/freelancerkit/*Application</exclude>
 					</excludes>
 					
