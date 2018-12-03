@@ -13,13 +13,15 @@ import com.nimbusds.jwt.proc.ConfigurableJWTProcessor;
 import com.nimbusds.jwt.proc.DefaultJWTProcessor;
 import org.springframework.security.authentication.BadCredentialsException;
 
+
 import java.text.ParseException;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
+
 public class CustomJwtService {
-    public static final String LEMON_IAT = "lemon-iat";
+    public static final String IAT = "iat";
     private DirectEncrypter encrypter;
     private JWEHeader header = new JWEHeader(JWEAlgorithm.DIR, EncryptionMethod.A128CBC_HS256);
     private ConfigurableJWTProcessor<SimpleSecurityContext> jwtProcessor;
@@ -50,10 +52,10 @@ public class CustomJwtService {
                 //.issueTime(new Date())
                 .expirationTime(new Date(System.currentTimeMillis() + expirationMillis))
                 .audience(aud)
-                .subject(subject)
-                .claim(LEMON_IAT, System.currentTimeMillis());
+                .subject(subject);
 
-        //claimMap.put("iat", new Date());
+
+        claimMap.put("iat", new Date());
         claimMap.forEach(builder::claim);
 
         JWTClaimsSet claims = builder.build();
@@ -121,7 +123,7 @@ public class CustomJwtService {
 
         JWTClaimsSet claims = parseToken(token, audience);
 
-        long issueTime = (long) claims.getClaim(LEMON_IAT);
+        //long issueTime = (long) claims.getClaim(LEMON_IAT);
         /*
         LecUtils.ensureCredentials(issueTime >= issuedAfter,
                 "com.naturalprogrammer.spring.obsoleteToken");

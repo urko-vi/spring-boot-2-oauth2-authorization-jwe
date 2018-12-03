@@ -7,7 +7,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
@@ -22,11 +21,16 @@ import org.springframework.security.oauth2.config.annotation.web.configurers.Aut
 import org.springframework.security.oauth2.provider.ClientDetailsService;
 import org.springframework.security.oauth2.provider.OAuth2RequestFactory;
 import org.springframework.security.oauth2.provider.endpoint.TokenEndpointAuthenticationFilter;
+import org.springframework.security.oauth2.provider.token.TokenEnhancer;
 import org.springframework.security.oauth2.provider.token.TokenStore;
 import org.springframework.security.oauth2.provider.token.store.JwtAccessTokenConverter;
 import org.springframework.security.oauth2.provider.token.store.JwtTokenStore;
 import org.springframework.security.oauth2.provider.token.store.KeyStoreKeyFactory;
 
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
+import java.security.NoSuchAlgorithmException;
+import java.util.Base64;
 
 
 @Configuration
@@ -35,23 +39,25 @@ public class OAuth2Configuration extends AuthorizationServerConfigurerAdapter {
 
     @Value("${check-user-scopes}")
     private Boolean checkUserScopes;
-
+    private final DataSource dataSource;
+    private final PasswordEncoder passwordEncoder;
+    private final UserDetailsService userDetailsService;
+    private final ClientDetailsService clientDetailsService;
+    private final AuthenticationManager authenticationManager;
     @Autowired
-    private DataSource dataSource;
+    public OAuth2Configuration(@Qualifier("authenticationManagerBean")AuthenticationManager authenticationManager,
+                               DataSource dataSource,
+                               PasswordEncoder passwordEncoder,
+                               UserDetailsService userDetailsService,
+                               ClientDetailsService clientDetailsService
+                              ){
+        this.dataSource = dataSource;
+        this.passwordEncoder = passwordEncoder;
+        this.userDetailsService = userDetailsService;
+        this.clientDetailsService = clientDetailsService;
+        this.authenticationManager = authenticationManager;
 
-    @Autowired
-    private PasswordEncoder passwordEncoder;
-
-    @Autowired
-    private UserDetailsService userDetailsService;
-
-    @Autowired
-    private ClientDetailsService clientDetailsService;
-
-    @Autowired
-    @Qualifier("authenticationManagerBean")
-    private AuthenticationManager authenticationManager;
-
+    }
     @Bean
     public OAuth2RequestFactory requestFactory() {
         CustomOauth2RequestFactory requestFactory = new CustomOauth2RequestFactory(clientDetailsService);
@@ -61,7 +67,7 @@ public class OAuth2Configuration extends AuthorizationServerConfigurerAdapter {
 
     @Bean
     public TokenStore tokenStore() {
-        return new JwtTokenStore(jwtAccessTokenConverter());
+        return new JwtTokenStore(accessTokenConverter());
     }
 
     @Override
@@ -75,18 +81,20 @@ public class OAuth2Configuration extends AuthorizationServerConfigurerAdapter {
     }
 
     @Override
-    public void configure(AuthorizationServerSecurityConfigurer oauthServer) throws Exception {
+    public void configure(AuthorizationServerSecurityConfigurer oauthServer) {
         oauthServer.tokenKeyAccess("permitAll()").checkTokenAccess("isAuthenticated()");
     }
 
     @Override
-    public void configure(AuthorizationServerEndpointsConfigurer endpoints) throws Exception {
-        endpoints.tokenStore(tokenStore()).tokenEnhancer(jwtAccessTokenConverter())
+    public void configure(AuthorizationServerEndpointsConfigurer endpoints) {
+        endpoints.tokenStore(tokenStore()).tokenEnhancer(tokenEnhancer())
                 .authenticationManager(authenticationManager).userDetailsService(userDetailsService);
-        if (checkUserScopes)
+        if (checkUserScopes) {
             endpoints.requestFactory(requestFactory());
-    }
+        }
 
+    }
+/*
     @Bean
     public JwtAccessTokenConverter jwtAccessTokenConverter() {
         JwtAccessTokenConverter converter = new CustomTokenEnhancer();
@@ -94,12 +102,27 @@ public class OAuth2Configuration extends AuthorizationServerConfigurerAdapter {
                 new KeyStoreKeyFactory(new ClassPathResource("jwt.jks"), "password".toCharArray()).getKeyPair("jwt"));
         return converter;
     }
-
-    @Bean("jwtService")
-    @ConditionalOnMissingBean(CustomJwtService.class)
-    public CustomJwtService jwtService() throws KeyLengthException {
-
-        return new CustomJwtService("");
+*/
+    @Bean
+    public TokenEnhancer tokenEnhancer() {
+        return new JweTokenEnhancer(accessTokenConverter(),
+                new JweTokenSerializer(symmetricKey()));
     }
-
+    @Bean
+    public JwtAccessTokenConverter accessTokenConverter() {
+        JwtAccessTokenConverter tokenConverter = new JwtAccessTokenConverter();
+        tokenConverter.setSigningKey(symmetricKey());
+        return tokenConverter;
+    }
+    @Bean
+    public String symmetricKey() {
+        try {
+            KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
+            keyGenerator.init(128);
+            SecretKey key = keyGenerator.generateKey();
+            return Base64.getEncoder().encodeToString(key.getEncoded());
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
+    }
 }

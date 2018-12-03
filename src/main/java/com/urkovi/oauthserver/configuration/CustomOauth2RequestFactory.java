@@ -18,7 +18,6 @@ public class CustomOauth2RequestFactory extends DefaultOAuth2RequestFactory {
     private TokenStore tokenStore;
     @Autowired
     private UserDetailsService userDetailsService;
-
     public CustomOauth2RequestFactory(ClientDetailsService clientDetailsService) {
         super(clientDetailsService);
     }
