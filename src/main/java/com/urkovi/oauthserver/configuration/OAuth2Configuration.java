@@ -1,12 +1,8 @@
 package com.urkovi.oauthserver.configuration;
 
-import javax.sql.DataSource;
-
-import com.nimbusds.jose.KeyLengthException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
@@ -27,10 +23,7 @@ import org.springframework.security.oauth2.provider.token.store.JwtAccessTokenCo
 import org.springframework.security.oauth2.provider.token.store.JwtTokenStore;
 import org.springframework.security.oauth2.provider.token.store.KeyStoreKeyFactory;
 
-import javax.crypto.KeyGenerator;
-import javax.crypto.SecretKey;
-import java.security.NoSuchAlgorithmException;
-import java.util.Base64;
+import javax.sql.DataSource;
 
 
 @Configuration
@@ -106,14 +99,16 @@ public class OAuth2Configuration extends AuthorizationServerConfigurerAdapter {
     @Bean
     public TokenEnhancer tokenEnhancer() {
         return new JweTokenEnhancer(accessTokenConverter(),
-                new JweTokenSerializer(symmetricKey()));
+                new JweTokenSerializer(new KeyStoreKeyFactory(new ClassPathResource("jwt.jks"), "password".toCharArray()).getKeyPair("jwt")));
     }
     @Bean
     public JwtAccessTokenConverter accessTokenConverter() {
-        JwtAccessTokenConverter tokenConverter = new JwtAccessTokenConverter();
-        tokenConverter.setSigningKey(symmetricKey());
-        return tokenConverter;
+        JwtAccessTokenConverter converter = new JwtAccessTokenConverter();
+        converter.setKeyPair(
+                new KeyStoreKeyFactory(new ClassPathResource("jwt.jks"), "password".toCharArray()).getKeyPair("jwt"));
+        return converter;
     }
+    /*
     @Bean
     public String symmetricKey() {
         try {
@@ -125,4 +120,5 @@ public class OAuth2Configuration extends AuthorizationServerConfigurerAdapter {
             throw new RuntimeException(e);
         }
     }
+    */
 }

@@ -13,7 +13,6 @@ import com.nimbusds.jwt.proc.ConfigurableJWTProcessor;
 import com.nimbusds.jwt.proc.DefaultJWTProcessor;
 import org.springframework.security.authentication.BadCredentialsException;
 
-
 import java.text.ParseException;
 import java.util.Date;
 import java.util.HashMap;

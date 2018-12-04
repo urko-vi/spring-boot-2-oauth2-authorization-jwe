@@ -3,36 +3,63 @@ package com.urkovi.oauthserver.configuration;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
-import com.nimbusds.jose.EncryptionMethod;
-import com.nimbusds.jose.JWEAlgorithm;
-import com.nimbusds.jose.JWEHeader;
-import com.nimbusds.jose.JWEObject;
-import com.nimbusds.jose.Payload;
-import com.nimbusds.jose.crypto.DirectDecrypter;
-import com.nimbusds.jose.crypto.DirectEncrypter;
+import com.nimbusds.jose.*;
+import com.nimbusds.jose.crypto.RSADecrypter;
+import com.nimbusds.jose.crypto.RSAEncrypter;
+import com.nimbusds.jose.crypto.RSASSASigner;
+import com.nimbusds.jose.jwk.KeyUse;
+import com.nimbusds.jose.jwk.RSAKey;
+import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
+import com.nimbusds.jwt.JWTClaimsSet;
+import com.nimbusds.jwt.SignedJWT;
 
-import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
-import java.util.Base64;
+import java.security.KeyPair;
+import java.security.interfaces.RSAPublicKey;
+import java.util.Date;
 import java.util.Map;
 
 public class JweTokenSerializer {
-    private String encodedKeypair;
+    private KeyPair keyPair;
 
-    public JweTokenSerializer(String encodedKeypair) {
-        this.encodedKeypair = encodedKeypair;
+    public JweTokenSerializer(KeyPair keyPair) {
+        this.keyPair = keyPair;
     }
 
     public String encode(String payload) {
         try {
-            byte[] decodedKey = Base64.getDecoder().decode(encodedKeypair);
-            SecretKey key = new SecretKeySpec(decodedKey, 0, decodedKey.length, "AES");
-
+            /*
             JWEHeader header = new JWEHeader(JWEAlgorithm.DIR, EncryptionMethod.A128GCM);
             Payload payloadObject = new Payload(payload);
 
-            JWEObject jweObject = new JWEObject(header, payloadObject);
-            jweObject.encrypt(new DirectEncrypter(key));
+            JWEObject jwe = new JWEObject(header, payloadObject);
+
+            JWEEncrypter encrypter = new RSAEncrypter((RSAPublicKey)keyPair.getPublic());
+            */
+            RSAKey senderJWK = new RSAKeyGenerator(2048)
+                    .keyID("123")
+                    .keyUse(KeyUse.SIGNATURE)
+                    .generate();
+            RSAKey senderPublicJWK = senderJWK.toPublicJWK();
+            SignedJWT signedJWT = new SignedJWT(
+                    new JWSHeader.Builder(JWSAlgorithm.RS256).keyID(senderJWK.getKeyID()).build(),
+                    new JWTClaimsSet.Builder()
+                            .subject("alice")
+                            .issueTime(new Date())
+                            .issuer("https://localhost")
+                            .build());
+
+            // Sign the JWT
+            signedJWT.sign(new RSASSASigner(senderJWK));
+
+            // Create JWE object with signed JWT as payload
+            JWEObject jweObject = new JWEObject(
+                    new JWEHeader.Builder(JWEAlgorithm.RSA_OAEP_256, EncryptionMethod.A256GCM)
+                            .contentType("JWT") // required to indicate nested JWT
+                            .build(),
+                    new Payload(signedJWT));
+
+// Encrypt with the recipient's public key
+
 
             return jweObject.serialize();
         } catch (Exception e) {
@@ -40,15 +67,12 @@ public class JweTokenSerializer {
         }
     }
 
-    public Map<String, Object> decode(String base64EncodedKey, String content) {
-
-        byte[] decodedKey = Base64.getDecoder().decode(base64EncodedKey);
-        SecretKey key = new SecretKeySpec(decodedKey, 0, decodedKey.length, "AES");
-
+    public Map<String, Object> decode(String content) {
         try {
             JWEObject  jweObject = JWEObject.parse(content);
+            JWEDecrypter decrypter = new RSADecrypter(keyPair.getPrivate());
 
-            jweObject.decrypt(new DirectDecrypter(key));
+            jweObject.decrypt(decrypter);
 
             Payload payload = jweObject.getPayload();
             ObjectMapper objectMapper = new ObjectMapper();
